@@ -86,6 +86,7 @@
     helpBtn: document.getElementById("help-btn"),
     helpClose: document.getElementById("help-close"),
     helpOk: document.getElementById("help-ok"),
+    toast: document.getElementById("toast"),
   };
 
   let inputs = []; // células <input> em ordem
@@ -277,8 +278,64 @@
       <p><span class="label">Tipo</span><br>${p.type}</p>
       <p><span class="label">Definição</span><br>«${p.definition}» — ${p.defNote}</p>
       <p><span class="label">Jogo de palavras</span><br>${p.wordplay}</p>
+      <button id="share-btn" class="share-btn" type="button">📋 Compartilhar resultado</button>
     `;
+    const shareBtn = document.getElementById("share-btn");
+    if (shareBtn) shareBtn.addEventListener("click", () => shareResult(p));
     el.explanation.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
+  // ----- Compartilhar (estilo Wordle) -----
+  const SHARE_URL = "https://tobson04.github.io/enigma-do-minuto/";
+
+  function buildShareText(p) {
+    const ps = puzzleState(p.id);
+    const hints = Math.min(ps.hints || 0, 3);
+    const guesses = ps.guesses || 0;
+    let bar, line;
+    if (ps.solved) {
+      bar = "🟩".repeat(3 - hints) + "🟨".repeat(hints);
+      const gWord = guesses === 1 ? "tentativa" : "tentativas";
+      const hWord = hints === 1 ? "dica" : "dicas";
+      const bravo = hints === 0 && guesses <= 1 ? " — perfeito!" : "";
+      line = `Resolvi com ${hints} ${hWord} e ${guesses} ${gWord}${bravo}`;
+    } else {
+      bar = "🟥🟥🟥";
+      line = "Acabei revelando a resposta 🙈";
+    }
+    return `🧩 Enigma do Minuto #${p.id}\n${bar}\n${line}\n${SHARE_URL}`;
+  }
+
+  async function shareResult(p) {
+    const text = buildShareText(p);
+    // Em celulares, usa o menu nativo de compartilhamento quando disponível.
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: "Enigma do Minuto", text });
+        return;
+      } catch (e) {
+        if (e && e.name === "AbortError") return; // usuário cancelou
+        // senão, cai para a cópia
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      toast("Resultado copiado! 📋 Cole onde quiser.");
+    } catch (e) {
+      window.prompt("Copie seu resultado:", text);
+    }
+  }
+
+  let toastTimer = null;
+  function toast(msg) {
+    el.toast.textContent = msg;
+    el.toast.hidden = false;
+    el.toast.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      el.toast.classList.remove("show");
+      setTimeout(() => (el.toast.hidden = true), 250);
+    }, 2400);
   }
 
   function lockBoard() {
